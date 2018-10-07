@@ -1,7 +1,52 @@
 extern crate proc_macro;
-use crate::proc_macro::TokenStream;
+extern crate proc_macro2;
+extern crate quote;
+use crate::proc_macro::{TokenStream};
+use crate::proc_macro2::{Span};
+use crate::quote::{quote, quote_spanned};
 
-use syn::{Item, FnArg, ArgCaptured, Type, TypePath, Path};
+mod ioc;
+use self::ioc::ServiceContainer;
+
+use syn::{Item, ItemFn, FnArg, ArgCaptured, Type, TypePath, Path, Ident};
+
+#[proc_macro_attribute]
+pub fn inject(_attr: TokenStream, input: TokenStream) -> TokenStream {
+
+    // Parse input as a function (or panic)
+    println!("input: \"{}\"", input.clone().to_string());
+    let func : ItemFn = syn::parse(input.clone()).expect("The inject macro is only supported on functions");
+
+    let arg_types = func.clone().decl.inputs.into_iter()
+        .map(|arg| {
+            if let FnArg::Captured(ArgCaptured { ty: Type::Path(TypePath { qself: None, path }), .. }) = arg {
+                let arg_type = path.clone().segments.into_iter().map(|seg| seg.ident.to_string()).collect::<Vec<_>>().join("::");
+                println!("type: {}", arg_type);
+                path
+            } else {
+                panic!("The inject macro only supports simple type arguments");
+            }
+        });
+
+    // Span types
+    let ident = func.ident.clone();
+    let container_type = quote_spanned! {Span::call_site() => &crate::ioc::ServiceContainer};
+    let original_func_ident = Ident::new(format!("{}__orig", ident).as_str(), ident.span());;
+    let mut original_func = func.clone();
+    original_func.ident = original_func_ident.clone();
+
+    let args = quote_spanned!{Span::call_site() => #((*resolver.resolve_read::<#arg_types>().unwrap()).clone()),*};
+
+    return quote!{
+        
+        #original_func
+        
+        fn #ident(resolver: #container_type) {
+            #original_func_ident(#args);
+        }
+
+    }.into();
+}
 
 #[proc_macro_attribute]
 pub fn show_streams(_attr: TokenStream, input: TokenStream) -> TokenStream {
