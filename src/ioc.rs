@@ -111,10 +111,6 @@ impl ServiceContainer {
         ServiceContainer{services: TypeMap::custom()}
     }
 
-    pub fn freeze(self) -> Arc<Self> {
-        return Arc::new(self);
-    }
-
     pub fn bind_singleton<S: Service + Send + Sync + 'static, T: Into<ServiceSingleton<S>>> (&mut self, service: T) {
         let value = ServiceValue::Singleton(service.into());
         self.services.insert::<KeyType<S>>(value);

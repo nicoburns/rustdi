@@ -23,7 +23,7 @@ fn main() {
     container.bind_singleton(Arc::new(AppConfig));
     container.bind_singleton(Arc::new(RwLock::new(s3::S3Client("world".into()))));
 
-    let container = container.freeze();
+    let container = Arc::new(container);
     let thread_container = container.clone();
 
     println!("Testing container manually...");
