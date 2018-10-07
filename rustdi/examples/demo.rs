@@ -1,9 +1,10 @@
+extern crate rustdi;
+#[macro_use] extern crate rustdi_derive;
+
 use std::sync::Arc;
 use std::sync::RwLock;
 
 use rustdi::ioc::{Service, ServiceContainer};
-extern crate rustdi_derive;
-use crate::rustdi_derive::inject;
 
 // Dummy types for testing DI with
 #[derive(Clone, Debug)]

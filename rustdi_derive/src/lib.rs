@@ -1,9 +1,10 @@
-extern crate proc_macro;
+#[macro_use] extern crate proc_macro;
 extern crate proc_macro2;
-extern crate quote;
+extern crate syn;
+#[macro_use] extern crate quote;
+
 use crate::proc_macro::{TokenStream};
 use crate::proc_macro2::{Span};
-use crate::quote::{quote, quote_spanned};
 
 use syn::{ItemFn, FnArg, ArgCaptured, Type, TypePath, TypeReference, Ident};
 
