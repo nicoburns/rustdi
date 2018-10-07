@@ -1,0 +1,15 @@
+[package]
+name = "rustdi_derive"
+version = "0.1.0"
+authors = ["Nico Burns <nico@nicoburns.com>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+name = "rustdi_derive"
+path = "src/lib.rs"
+
+[dependencies]
+proc-macro2 = "0.4.20"
+syn = { version = "0.15", features = ["full", "printing", "parsing", "clone-impls", "extra-traits"] }
+quote = "0.6"

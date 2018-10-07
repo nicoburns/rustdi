@@ -1,9 +1,9 @@
 use std::sync::Arc;
 use std::sync::RwLock;
-use rustdi_macro::inject;
 
-pub mod ioc;
-use crate::ioc::Service;
+use rustdi::ioc::{Service, ServiceContainer};
+extern crate rustdi_derive;
+use crate::rustdi_derive::inject;
 
 // Dummy types for testing DI with
 #[derive(Clone, Debug)]
@@ -11,7 +11,7 @@ struct AppConfig;
 impl Service for AppConfig {}
 
 pub mod s3 {
-    use crate::ioc::Service;
+    use rustdi::ioc::Service;
     #[derive(Clone, Debug)]
     pub struct S3Client(pub String);
     impl Service for S3Client {}
@@ -19,7 +19,7 @@ pub mod s3 {
 
 fn main() {
 
-    let mut container = ioc::ServiceContainer::new();
+    let mut container = ServiceContainer::new();
     container.bind_singleton(Arc::new(AppConfig));
     container.bind_singleton(Arc::new(RwLock::new(s3::S3Client("world".into()))));
 

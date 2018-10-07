@@ -1,2 +1,4 @@
 /target
+rustdi/target
+rustdi_derive/target
 **/*.rs.bk
