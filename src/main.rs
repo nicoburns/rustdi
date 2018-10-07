@@ -26,8 +26,10 @@ fn main() {
     let mut container = ioc::ServiceContainer::new();
     container.bind_singleton(Arc::new(RwLock::new(s3::S3Client("hello".into()))));
 
-    std::thread::spawn(move ||{
-        let mut client = container.resolve_write::<s3::S3Client>().unwrap();
+    let container = container.freeze();
+    let thread_container = container.clone();
+    std::thread::spawn(move || {
+        let mut client = thread_container.resolve_write::<s3::S3Client>().unwrap();
         client.0 = "world".into();
     }).join().unwrap();
 

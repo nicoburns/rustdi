@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::convert::Into;
 use std::ops::Deref;
 use std::ops::DerefMut;
-use typemap::{TypeMap, SendMap, Key};
+use typemap::{TypeMap, ShareMap, Key};
 
 struct KeyType<T>(T);
 
@@ -19,13 +19,13 @@ pub enum ServiceSingleton<T: Service> {
     RwLock(Arc<RwLock<T>>),
     Mutex(Arc<Mutex<T>>),
 }
-impl<T: Service> From<Arc<T>> for ServiceSingleton<T> {
+impl<T: Service + Send + Sync> From<Arc<T>> for ServiceSingleton<T> {
     fn from(service: Arc<T>) -> Self { return ServiceSingleton::Bare(service); }
 }
-impl<T: Service> From<Arc<RwLock<T>>> for ServiceSingleton<T> {
+impl<T: Service + Send + Sync> From<Arc<RwLock<T>>> for ServiceSingleton<T> {
     fn from(service: Arc<RwLock<T>>) -> Self { return ServiceSingleton::RwLock(service); }
 }
-impl<T: Service> From<Arc<Mutex<T>>> for ServiceSingleton<T> {
+impl<T: Service + Send> From<Arc<Mutex<T>>> for ServiceSingleton<T> {
     fn from(service: Arc<Mutex<T>>) -> Self { return ServiceSingleton::Mutex(service); }
 }
 impl<S: Service> ServiceSingleton<S> {
@@ -102,35 +102,39 @@ impl<T: Service + 'static> Key for KeyType<T> { type Value = ServiceValue<T>; }
 pub trait Service {}
 
 pub struct ServiceContainer {
-    services: TypeMap
+    services: ShareMap
 }
 
 impl ServiceContainer {
 
     pub fn new () -> Self {
-        ServiceContainer{services: TypeMap::new()}
+        ServiceContainer{services: TypeMap::custom()}
     }
 
-    pub fn bind_singleton<S: Service + 'static, T: Into<ServiceSingleton<S>>> (&mut self, service: T) {
+    pub fn freeze(self) -> Arc<Self> {
+        return Arc::new(self);
+    }
+
+    pub fn bind_singleton<S: Service + Send + Sync + 'static, T: Into<ServiceSingleton<S>>> (&mut self, service: T) {
         let value = ServiceValue::Singleton(service.into());
         self.services.insert::<KeyType<S>>(value);
     }
 
-    pub fn resolve<S: Service + 'static> (&self) -> Result<&ServiceValue<S>, ()> {
+    pub fn resolve<S: Service + Send + Sync + 'static> (&self) -> Result<&ServiceValue<S>, ()> {
         match self.services.get::<KeyType<S>>() {
             Some(value) => Ok(value),
             None        => Err(()),
         }
     }
 
-    pub fn resolve_read<S: Service + 'static> (&self) -> Result<ServiceSingletonReadGuard<S>, ()> {
+    pub fn resolve_read<S: Service + Send + Sync + 'static> (&self) -> Result<ServiceSingletonReadGuard<S>, ()> {
         match self.services.get::<KeyType<S>>() {
             Some(ServiceValue::Singleton(value)) => value.read(),
             _ => Err(()),
         }
     }
 
-    pub fn resolve_write<S: Service + 'static> (&self) -> Result<ServiceSingletonWriteGuard<S>, ()> {
+    pub fn resolve_write<S: Service + Send + Sync + 'static> (&self) -> Result<ServiceSingletonWriteGuard<S>, ()> {
         match self.services.get::<KeyType<S>>() {
             Some(ServiceValue::Singleton(value)) => value.write(),
             _ => Err(()),
