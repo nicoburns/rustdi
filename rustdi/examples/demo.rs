@@ -4,19 +4,16 @@ extern crate rustdi;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use rustdi::ioc::{Service, ServiceContainer};
+use rustdi::ioc::ServiceContainer;
 
 
 // Dummy types for testing DI with
 #[derive(Clone, Debug)]
 struct AppConfig;
-impl Service for AppConfig {}
 
 pub mod s3 {
-    use rustdi::ioc::Service;
     #[derive(Clone, Debug)]
     pub struct S3Client(pub String);
-    impl Service for S3Client {}
 }
 
 
@@ -42,8 +39,8 @@ fn main() {
     // Create IoC service container and bind services
     let container = {
         let mut c = ServiceContainer::new();
-        c.bind_singleton(Arc::new(AppConfig));
-        c.bind_singleton(Arc::new(RwLock::new(s3::S3Client("world".into()))));
+        c.bind_singleton_arc(Arc::new(AppConfig));
+        c.bind_singleton_rwlock(Arc::new(RwLock::new(s3::S3Client("world".into()))));
         Arc::new(c)
     };
 

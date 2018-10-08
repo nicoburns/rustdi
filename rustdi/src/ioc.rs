@@ -14,83 +14,72 @@ struct KeyType<T>(T);
 
 // Singleton Service Container
 #[derive(Debug)]
-pub enum ServiceValue<T: Service> {
-    Bare(Arc<T>),
-    RwLock(Arc<RwLock<T>>),
-    Mutex(Arc<Mutex<T>>),
+pub enum Service<T> {
+    SingletonArc(Arc<T>),
+    SingletonRwLock(Arc<RwLock<T>>),
+    SingletonMutex(Arc<Mutex<T>>),
 }
-impl<T: Service + Send + Sync> From<Arc<T>> for ServiceValue<T> {
-    fn from(service: Arc<T>) -> Self { return ServiceValue::Bare(service); }
-}
-impl<T: Service + Send + Sync> From<Arc<RwLock<T>>> for ServiceValue<T> {
-    fn from(service: Arc<RwLock<T>>) -> Self { return ServiceValue::RwLock(service); }
-}
-impl<T: Service + Send> From<Arc<Mutex<T>>> for ServiceValue<T> {
-    fn from(service: Arc<Mutex<T>>) -> Self { return ServiceValue::Mutex(service); }
-}
-impl<S: Service> ServiceValue<S> {
-    pub fn read (&self) -> Result<ServiceValueReadGuard<S>, ()> {
+
+impl<S> Service<S> {
+    pub fn read (&self) -> Result<ServiceReadGuard<S>, ()> {
         return match self {
-            ServiceValue::Bare(service)   => Ok(ServiceValueReadGuard::Bare(service.clone())),
-            ServiceValue::RwLock(service) => Ok(ServiceValueReadGuard::RwLock(service.read().unwrap())),
-            ServiceValue::Mutex(service)  => Ok(ServiceValueReadGuard::Mutex(service.lock().unwrap())),
+            Service::SingletonArc(service)   => Ok(ServiceReadGuard::Arc(service.clone())),
+            Service::SingletonRwLock(service) => Ok(ServiceReadGuard::RwLock(service.read().unwrap())),
+            Service::SingletonMutex(service)  => Ok(ServiceReadGuard::Mutex(service.lock().unwrap())),
         }
     }
 
-    pub fn write (&self) -> Result<ServiceValueWriteGuard<S>, ()> {
+    pub fn write (&self) -> Result<ServiceWriteGuard<S>, ()> {
         return match self {
-            ServiceValue::Bare(_)   => Err(()),
-            ServiceValue::RwLock(service) => Ok(ServiceValueWriteGuard::RwLock(service.write().unwrap())),
-            ServiceValue::Mutex(service)  => Ok(ServiceValueWriteGuard::Mutex(service.lock().unwrap())),
+            Service::SingletonArc(_)   => Err(()),
+            Service::SingletonRwLock(service) => Ok(ServiceWriteGuard::RwLock(service.write().unwrap())),
+            Service::SingletonMutex(service)  => Ok(ServiceWriteGuard::Mutex(service.lock().unwrap())),
         }
     }
 }
 
-pub enum ServiceValueReadGuard<'a, T: Service> {
-    Bare(Arc<T>),
+pub enum ServiceReadGuard<'a, T> {
+    Arc(Arc<T>),
     RwLock(RwLockReadGuard<'a, T>),
     Mutex(MutexGuard<'a, T>),
 }
-impl<'a, T: Service> Deref for ServiceValueReadGuard<'a, T> {
+impl<'a, T> Deref for ServiceReadGuard<'a, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
         match self {
-            ServiceValueReadGuard::Bare(guard)   => &*guard,
-            ServiceValueReadGuard::RwLock(guard) => &*guard,
-            ServiceValueReadGuard::Mutex(guard)  => &*guard,
+            ServiceReadGuard::Arc(guard)   => &*guard,
+            ServiceReadGuard::RwLock(guard) => &*guard,
+            ServiceReadGuard::Mutex(guard)  => &*guard,
         }
     }
 }
 
-pub enum ServiceValueWriteGuard<'a, T: Service> {
+pub enum ServiceWriteGuard<'a, T> {
     RwLock(RwLockWriteGuard<'a, T>),
     Mutex(MutexGuard<'a, T>),
 }
-impl<'a, T: Service> Deref for ServiceValueWriteGuard<'a, T> {
+impl<'a, T> Deref for ServiceWriteGuard<'a, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
         match self {
-            ServiceValueWriteGuard::RwLock(guard) => &*guard,
-            ServiceValueWriteGuard::Mutex(guard)  => &*guard,
+            ServiceWriteGuard::RwLock(guard) => &*guard,
+            ServiceWriteGuard::Mutex(guard)  => &*guard,
         }
     }
 }
-impl<'a, T: Service> DerefMut for ServiceValueWriteGuard<'a, T> {
+impl<'a, T> DerefMut for ServiceWriteGuard<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
         match self {
-            ServiceValueWriteGuard::RwLock(guard) => &mut *guard,
-            ServiceValueWriteGuard::Mutex(guard)  => &mut *guard,
+            ServiceWriteGuard::RwLock(guard) => &mut *guard,
+            ServiceWriteGuard::Mutex(guard)  => &mut *guard,
         }
     }
 }
 
-impl<T: Service + 'static> Key for KeyType<T> { type Value = ServiceValue<T>; }
+impl<T: 'static> Key for KeyType<T> { type Value = Service<T>; }
 
-
-
-pub trait Service {}
 
 pub struct ServiceContainer {
     services: ShareMap
@@ -102,26 +91,36 @@ impl ServiceContainer {
         ServiceContainer{services: TypeMap::custom()}
     }
 
-    pub fn bind_singleton<S: Service + Send + Sync + 'static, T: Into<ServiceValue<S>>> (&mut self, service: T) {
-        let value = service.into();
+    pub fn bind_singleton_arc<S: Send + Sync + 'static> (&mut self, service: Arc<S>) {
+        let value = Service::SingletonArc(service);
         self.services.insert::<KeyType<S>>(value);
     }
 
-    pub fn resolve<S: Service + Send + Sync + 'static> (&self) -> Result<&ServiceValue<S>, ()> {
+    pub fn bind_singleton_rwlock<S: Send + Sync + 'static> (&mut self, service: Arc<RwLock<S>>) {
+        let value = Service::SingletonRwLock(service);
+        self.services.insert::<KeyType<S>>(value);
+    }
+
+    pub fn bind_singleton_mutex<S: Send + Sync + 'static> (&mut self, service: Arc<Mutex<S>>) {
+        let value = Service::SingletonMutex(service);
+        self.services.insert::<KeyType<S>>(value);
+    }
+
+    pub fn resolve<S: Send + Sync + 'static> (&self) -> Result<&Service<S>, ()> {
         match self.services.get::<KeyType<S>>() {
             Some(value) => Ok(value),
             None        => Err(()),
         }
     }
 
-    pub fn resolve_read<S: Service + Send + Sync + 'static> (&self) -> Result<ServiceValueReadGuard<S>, ()> {
+    pub fn resolve_read<S: Send + Sync + 'static> (&self) -> Result<ServiceReadGuard<S>, ()> {
         match self.services.get::<KeyType<S>>() {
             Some(value) => value.read(),
             _           => Err(()),
         }
     }
 
-    pub fn resolve_write<S: Service + Send + Sync + 'static> (&self) -> Result<ServiceValueWriteGuard<S>, ()> {
+    pub fn resolve_write<S: Send + Sync + 'static> (&self) -> Result<ServiceWriteGuard<S>, ()> {
         match self.services.get::<KeyType<S>>() {
             Some(value) => value.write(),
             _           => Err(()),
