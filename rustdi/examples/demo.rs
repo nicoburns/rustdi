@@ -46,6 +46,7 @@ fn main() {
         let mut c = ServiceContainer::new();
         c.bind_singleton_arc(Arc::new(AppConfig));
         c.bind_singleton_rwlock(Arc::new(RwLock::new(s3::S3Client("world".into()))));
+        c.bind_factory(|| s3::S3Client("world".into()));
         Arc::new(c)
     };
 
@@ -59,6 +60,8 @@ fn main() {
         let client = container.resolve_immutable_ref::<s3::S3Client>().unwrap();
         println!("Hello {}", client.0);
     }
+    let client = container.resolve_owned_value::<s3::S3Client>().unwrap();
+    println!("Hello {}", client.0);
 
     // Test resolving references out of the container using the #[inject] macro
     println!("Testing injectable handlers...");

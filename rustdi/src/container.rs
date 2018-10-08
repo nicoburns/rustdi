@@ -37,13 +37,18 @@ impl ServiceContainer {
         let value = Service::SingletonMutex(service);
         self.services.insert::<KeyType<S>>(value);
     }
+
+    pub fn bind_factory<S: Send + Sync + 'static> (&mut self, factory: fn() -> S) {
+        let value = Service::Factory(Arc::new(factory));
+        self.services.insert::<KeyType<S>>(value);
+    }
 }
 
 // Resolving methods which allow services to be retrieved from the Service Container
 impl ServiceContainer {
-    pub fn resolve<S: Send + Sync + 'static> (&self) -> Result<&Service<S>, ResolveError> {
+    pub fn resolve_owned_value<S: Send + Sync + 'static> (&self) -> Result<S, ResolveError> {
         match self.services.get::<KeyType<S>>() {
-            Some(service) => Ok(service),
+            Some(service) => service.owned_value(),
             None          => Err(ResolveError::NonExist),
         }
     }

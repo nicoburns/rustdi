@@ -16,6 +16,7 @@ pub enum Service<T> {
     SingletonArc(Arc<T>),
     SingletonRwLock(Arc<RwLock<T>>),
     SingletonMutex(Arc<Mutex<T>>),
+    Factory(Arc<fn() -> T>),
 }
 
 impl<S> Service<S> {
@@ -24,6 +25,7 @@ impl<S> Service<S> {
             Service::SingletonArc(service)    => Ok(ServiceReadGuard::Arc(service.clone())),
             Service::SingletonRwLock(service) => service.read().map(ServiceReadGuard::RwLock).map_err(|_| ResolveError::Poisoned),
             Service::SingletonMutex(service)  => service.lock().map(ServiceReadGuard::Mutex).map_err(|_| ResolveError::Poisoned),
+            Service::Factory(factory)         => Ok(ServiceReadGuard::Owned(factory())),
         }
     }
 
@@ -32,6 +34,16 @@ impl<S> Service<S> {
             Service::SingletonArc(_)          => Err(ResolveError::MutImmutable),
             Service::SingletonRwLock(service) => service.write().map(ServiceWriteGuard::RwLock).map_err(|_| ResolveError::Poisoned),
             Service::SingletonMutex(service)  => service.lock().map(ServiceWriteGuard::Mutex).map_err(|_| ResolveError::Poisoned),
+            Service::Factory(factory)         => Ok(ServiceWriteGuard::Owned(factory())),
+        }
+    }
+
+    pub fn owned_value (&self) -> Result<S, ResolveError> {
+        return match self {
+            Service::SingletonArc(_)    => Err(ResolveError::OwnedImmutable),
+            Service::SingletonRwLock(_) => Err(ResolveError::OwnedMutable),
+            Service::SingletonMutex(_)  => Err(ResolveError::OwnedMutable),
+            Service::Factory(factory)   => Ok(factory()),
         }
     }
 }
@@ -40,6 +52,7 @@ pub enum ServiceReadGuard<'a, T> {
     Arc(Arc<T>),
     RwLock(RwLockReadGuard<'a, T>),
     Mutex(MutexGuard<'a, T>),
+    Owned(T),
 }
 impl<'a, T> Deref for ServiceReadGuard<'a, T> {
     type Target = T;
@@ -49,6 +62,7 @@ impl<'a, T> Deref for ServiceReadGuard<'a, T> {
             ServiceReadGuard::Arc(guard)    => &*guard,
             ServiceReadGuard::RwLock(guard) => &*guard,
             ServiceReadGuard::Mutex(guard)  => &*guard,
+            ServiceReadGuard::Owned(value)  => &*value,
         }
     }
 }
@@ -56,6 +70,7 @@ impl<'a, T> Deref for ServiceReadGuard<'a, T> {
 pub enum ServiceWriteGuard<'a, T> {
     RwLock(RwLockWriteGuard<'a, T>),
     Mutex(MutexGuard<'a, T>),
+    Owned(T),
 }
 impl<'a, T> Deref for ServiceWriteGuard<'a, T> {
     type Target = T;
@@ -64,6 +79,7 @@ impl<'a, T> Deref for ServiceWriteGuard<'a, T> {
         match self {
             ServiceWriteGuard::RwLock(guard) => &*guard,
             ServiceWriteGuard::Mutex(guard)  => &*guard,
+            ServiceWriteGuard::Owned(value)  => &*value,
         }
     }
 }
@@ -72,6 +88,7 @@ impl<'a, T> DerefMut for ServiceWriteGuard<'a, T> {
         match self {
             ServiceWriteGuard::RwLock(guard) => &mut *guard,
             ServiceWriteGuard::Mutex(guard)  => &mut *guard,
+            ServiceWriteGuard::Owned(value)  => &mut *value,
         }
     }
 }
