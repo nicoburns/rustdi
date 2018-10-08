@@ -62,23 +62,23 @@ fn main() {
 
     // Test resolving references out of the container using the #[inject] macro
     println!("Testing injectable handlers...");
-    write_handler(&container);
-    read_handler(&container);
+    write_handler(&container).unwrap();
+    read_handler(&container).unwrap();
 
     // Test resolving references out of the container using the #[inject] macro
     // with the handlers running in seperate threads
     println!("Testing injectable handlers running in threads...");
     std::thread::spawn({
         let container = container.clone();
-        move || { write_handler(&container); }
+        move || { write_handler(&container).unwrap(); }
     }).join().unwrap();
     std::thread::spawn({
         let container = container.clone();
-        move || { read_handler(&container); }
+        move || { read_handler(&container).unwrap(); }
     }).join().unwrap();
 
     // Testing invalid handler. We cannot get a mutable reference to
     // an Arc singleton so we just panic in this case.
     println!("Testing invalid handler (expect panic)...");
-    invalid_handler(&container);
+    invalid_handler(&container).unwrap();
 }

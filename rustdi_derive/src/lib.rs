@@ -6,7 +6,8 @@ extern crate syn;
 use crate::proc_macro::{TokenStream};
 use crate::proc_macro2::{Span};
 
-use syn::{ItemFn, FnArg, ArgCaptured, Type, TypePath, TypeReference, Ident};
+use syn::{ItemFn, FnArg, ArgCaptured, Type, ReturnType, TypePath, TypeReference, Ident};
+use quote::ToTokens;
 
 enum ResolveType {
     ImmutableBorrow,
@@ -36,7 +37,10 @@ pub fn inject(_attr: TokenStream, input: TokenStream) -> TokenStream {
     
     // Generate parts of the output function
     let ident = func.ident.clone();
-    let return_type = func.decl.output.clone();
+    let return_type = match func.decl.output.clone() {
+        ReturnType::Default => Box::new(quote!{()}) as Box<ToTokens>,
+        ReturnType::Type(_, ty) => ty as Box<ToTokens>,
+    };
     let container_type = quote_spanned!{Span::call_site() => &::rustdi::ServiceContainer};
     let original_func_ident = Ident::new(format!("{}_orig", ident).as_str(), ident.span());;
     let mut original_func = func.clone();
@@ -45,17 +49,18 @@ pub fn inject(_attr: TokenStream, input: TokenStream) -> TokenStream {
     // Generate code to resolve injected arguments from container with requested mutability
     let args = arg_types_and_mutabilities.map(|(arg_path, arg_mutability)| {
         match arg_mutability {
-            ImmutableBorrow => quote_spanned!{Span::call_site() => &*resolver.resolve_immutable_ref::<#arg_path>().unwrap()},
-            MutableBorrow   => quote_spanned!{Span::call_site() => &mut*resolver.resolve_mutable_ref::<#arg_path>().unwrap()},
+            ImmutableBorrow => quote_spanned!{Span::call_site() => &*resolver.resolve_immutable_ref::<#arg_path>()?},
+            MutableBorrow   => quote_spanned!{Span::call_site() => &mut*resolver.resolve_mutable_ref::<#arg_path>()?},
         }
     });
 
     // Write out new wrapped function
     return quote!{
         
-        fn #ident(resolver: #container_type) {
+        fn #ident(resolver: #container_type) -> Result<#return_type, ::rustdi::ResolveError> {
             #original_func
-            #original_func_ident(#(#args),*);
+            let ret = #original_func_ident(#(#args),*);
+            return Ok(ret);
         }
 
     }.into();
