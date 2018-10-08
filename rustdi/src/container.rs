@@ -4,7 +4,8 @@ use std::sync::Arc;
 use std::marker::PhantomData;
 use typemap::{TypeMap, ShareMap, Key};
 
-use crate::service::{Service, ServiceReadGuard, ServiceWriteGuard};
+use super::service::{Service, ServiceReadGuard, ServiceWriteGuard};
+use super::resolve_error::ResolveError;
 
 // TypeMap requires us to use key and value types
 struct KeyType<T>(PhantomData<T>);
@@ -40,24 +41,24 @@ impl ServiceContainer {
 
 // Resolving methods which allow services to be retrieved from the Service Container
 impl ServiceContainer {
-    pub fn resolve<S: Send + Sync + 'static> (&self) -> Result<&Service<S>, ()> {
+    pub fn resolve<S: Send + Sync + 'static> (&self) -> Result<&Service<S>, ResolveError> {
         match self.services.get::<KeyType<S>>() {
             Some(service) => Ok(service),
-            None          => Err(()),
+            None          => Err(ResolveError::NonExist),
         }
     }
 
-    pub fn resolve_immutable_ref<S: Send + Sync + 'static> (&self) -> Result<ServiceReadGuard<S>, ()> {
+    pub fn resolve_immutable_ref<S: Send + Sync + 'static> (&self) -> Result<ServiceReadGuard<S>, ResolveError> {
         match self.services.get::<KeyType<S>>() {
             Some(service) => service.immutable_ref(),
-            _             => Err(()),
+            _             => Err(ResolveError::NonExist),
         }
     }
 
-    pub fn resolve_mutable_ref<S: Send + Sync + 'static> (&self) -> Result<ServiceWriteGuard<S>, ()> {
+    pub fn resolve_mutable_ref<S: Send + Sync + 'static> (&self) -> Result<ServiceWriteGuard<S>, ResolveError> {
         match self.services.get::<KeyType<S>>() {
             Some(service) => service.mutable_ref(),
-            _             => Err(()),
+            _             => Err(ResolveError::NonExist),
         }
     }
 }

@@ -7,6 +7,8 @@ use std::sync::Arc;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
+use super::resolve_error::ResolveError;
+
 // Service enum which encapsulates the various different ways which services
 // can be bound to the container, and allows us to do runtime checking.
 #[derive(Debug)]
@@ -17,19 +19,19 @@ pub enum Service<T> {
 }
 
 impl<S> Service<S> {
-    pub fn immutable_ref (&self) -> Result<ServiceReadGuard<S>, ()> {
+    pub fn immutable_ref (&self) -> Result<ServiceReadGuard<S>, ResolveError> {
         return match self {
             Service::SingletonArc(service)    => Ok(ServiceReadGuard::Arc(service.clone())),
-            Service::SingletonRwLock(service) => Ok(ServiceReadGuard::RwLock(service.read().unwrap())),
-            Service::SingletonMutex(service)  => Ok(ServiceReadGuard::Mutex(service.lock().unwrap())),
+            Service::SingletonRwLock(service) => service.read().map(ServiceReadGuard::RwLock).map_err(|_| ResolveError::Poisoned),
+            Service::SingletonMutex(service)  => service.lock().map(ServiceReadGuard::Mutex).map_err(|_| ResolveError::Poisoned),
         }
     }
 
-    pub fn mutable_ref (&self) -> Result<ServiceWriteGuard<S>, ()> {
+    pub fn mutable_ref (&self) -> Result<ServiceWriteGuard<S>, ResolveError> {
         return match self {
-            Service::SingletonArc(_)          => Err(()),
-            Service::SingletonRwLock(service) => Ok(ServiceWriteGuard::RwLock(service.write().unwrap())),
-            Service::SingletonMutex(service)  => Ok(ServiceWriteGuard::Mutex(service.lock().unwrap())),
+            Service::SingletonArc(_)          => Err(ResolveError::MutImmutable),
+            Service::SingletonRwLock(service) => service.write().map(ServiceWriteGuard::RwLock).map_err(|_| ResolveError::Poisoned),
+            Service::SingletonMutex(service)  => service.lock().map(ServiceWriteGuard::Mutex).map_err(|_| ResolveError::Poisoned),
         }
     }
 }

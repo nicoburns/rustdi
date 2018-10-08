@@ -20,6 +20,7 @@ pub fn inject(_attr: TokenStream, input: TokenStream) -> TokenStream {
     // Parse input as a function (or panic)
     let func : ItemFn = syn::parse(input.clone()).expect("The inject macro is only supported on functions");
 
+    // Extract argument info from function
     let arg_types_and_mutabilities = func.clone().decl.inputs.into_iter()
         .map(|arg| {
             if let FnArg::Captured(ArgCaptured{ ty: Type::Reference(TypeReference{ mutability, elem, .. }), .. }) = arg {
@@ -32,13 +33,16 @@ pub fn inject(_attr: TokenStream, input: TokenStream) -> TokenStream {
             } else { panic!("The inject macro only supports simple type arguments"); }
         });
 
-    // Span types
+    
+    // Generate parts of the output function
     let ident = func.ident.clone();
+    let return_type = func.decl.output.clone();
     let container_type = quote_spanned!{Span::call_site() => &::rustdi::ServiceContainer};
     let original_func_ident = Ident::new(format!("{}_orig", ident).as_str(), ident.span());;
     let mut original_func = func.clone();
     original_func.ident = original_func_ident.clone();
 
+    // Generate code to resolve injected arguments from container with requested mutability
     let args = arg_types_and_mutabilities.map(|(arg_path, arg_mutability)| {
         match arg_mutability {
             ImmutableBorrow => quote_spanned!{Span::call_site() => &*resolver.resolve_immutable_ref::<#arg_path>().unwrap()},
@@ -46,7 +50,7 @@ pub fn inject(_attr: TokenStream, input: TokenStream) -> TokenStream {
         }
     });
 
-
+    // Write out new wrapped function
     return quote!{
         
         fn #ident(resolver: #container_type) {
