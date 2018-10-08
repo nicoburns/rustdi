@@ -7,7 +7,8 @@ use std::sync::Arc;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
-// Singleton Service Container
+// Service enum which encapsulates the various different ways which services
+// can be bound to the container, and allows us to do runtime checking.
 #[derive(Debug)]
 pub enum Service<T> {
     SingletonArc(Arc<T>),
@@ -16,17 +17,17 @@ pub enum Service<T> {
 }
 
 impl<S> Service<S> {
-    pub fn read (&self) -> Result<ServiceReadGuard<S>, ()> {
+    pub fn immutable_ref (&self) -> Result<ServiceReadGuard<S>, ()> {
         return match self {
-            Service::SingletonArc(service)   => Ok(ServiceReadGuard::Arc(service.clone())),
+            Service::SingletonArc(service)    => Ok(ServiceReadGuard::Arc(service.clone())),
             Service::SingletonRwLock(service) => Ok(ServiceReadGuard::RwLock(service.read().unwrap())),
             Service::SingletonMutex(service)  => Ok(ServiceReadGuard::Mutex(service.lock().unwrap())),
         }
     }
 
-    pub fn write (&self) -> Result<ServiceWriteGuard<S>, ()> {
+    pub fn mutable_ref (&self) -> Result<ServiceWriteGuard<S>, ()> {
         return match self {
-            Service::SingletonArc(_)   => Err(()),
+            Service::SingletonArc(_)          => Err(()),
             Service::SingletonRwLock(service) => Ok(ServiceWriteGuard::RwLock(service.write().unwrap())),
             Service::SingletonMutex(service)  => Ok(ServiceWriteGuard::Mutex(service.lock().unwrap())),
         }
@@ -43,7 +44,7 @@ impl<'a, T> Deref for ServiceReadGuard<'a, T> {
 
     fn deref(&self) -> &T {
         match self {
-            ServiceReadGuard::Arc(guard)   => &*guard,
+            ServiceReadGuard::Arc(guard)    => &*guard,
             ServiceReadGuard::RwLock(guard) => &*guard,
             ServiceReadGuard::Mutex(guard)  => &*guard,
         }

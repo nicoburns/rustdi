@@ -47,8 +47,8 @@ pub fn inject(_attr: TokenStream, input: TokenStream) -> TokenStream {
 
     let args = arg_types_and_mutabilities.map(|(arg_path, arg_mutability)| {
         match arg_mutability {
-            ImmutableBorrow => quote_spanned!{Span::call_site() => &*resolver.resolve_read::<#arg_path>().unwrap()},
-            MutableBorrow   => quote_spanned!{Span::call_site() => &mut*resolver.resolve_write::<#arg_path>().unwrap()},
+            ImmutableBorrow => quote_spanned!{Span::call_site() => &*resolver.resolve_immutable_ref::<#arg_path>().unwrap()},
+            MutableBorrow   => quote_spanned!{Span::call_site() => &mut*resolver.resolve_mutable_ref::<#arg_path>().unwrap()},
         }
     });
 

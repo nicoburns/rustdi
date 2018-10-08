@@ -52,11 +52,11 @@ fn main() {
     // Test resolving references out of the container manually
     println!("Testing container manually...");
     {
-        let mut client = container.resolve_write::<s3::S3Client>().unwrap();
+        let mut client = container.resolve_mutable_ref::<s3::S3Client>().unwrap();
         client.0 = "frogs".into();
     }
     {
-        let client = container.resolve_read::<s3::S3Client>().unwrap();
+        let client = container.resolve_immutable_ref::<s3::S3Client>().unwrap();
         println!("Hello {}", client.0);
     }
 
