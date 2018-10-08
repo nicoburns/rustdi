@@ -1,5 +1,8 @@
 extern crate typemap;
 
+mod traits;
+pub use traits::{Inject, Resolver};
+
 mod container;
 pub use container::ServiceContainer;
 

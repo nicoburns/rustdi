@@ -4,7 +4,7 @@ extern crate rustdi;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use rustdi::ServiceContainer;
+use rustdi::{Resolver, ServiceContainer};
 
 
 // Dummy types for testing DI with
@@ -81,22 +81,23 @@ fn main() {
 
     // Test resolving references out of the container using the #[inject] macro
     println!("Testing injectable handlers...");
-    write_handler(&container).unwrap();
-    read_handler(&container).unwrap();
+    write_handler(&*container).unwrap();
+    read_handler(&*container).unwrap();
+    s3_handler(&*container).unwrap();
 
     // Test resolving references out of the container using the #[inject] macro
     // with the handlers running in seperate threads
     println!("Testing injectable handlers running in threads...");
     std::thread::spawn({
         let container = container.clone();
-        move || { write_handler(&container).unwrap(); }
+        move || { write_handler(&*container).unwrap(); }
     }).join().unwrap();
     std::thread::spawn({
         let container = container.clone();
-        move || { read_handler(&container).unwrap(); }
+        move || { read_handler(&*container).unwrap(); }
     }).join().unwrap();
-
-    // Testing factory service handler
-    println!("Testing factory service handler (expect panic)...");
-    s3_handler(&container).unwrap();
+    std::thread::spawn({
+        let container = container.clone();
+        move || { s3_handler(&*container).unwrap(); }
+    }).join().unwrap();
 }

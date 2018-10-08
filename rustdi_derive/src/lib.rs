@@ -50,7 +50,8 @@ pub fn inject(_attr: TokenStream, input: TokenStream) -> TokenStream {
         ReturnType::Default => Box::new(quote!{()}) as Box<ToTokens>,
         ReturnType::Type(_, ty) => ty as Box<ToTokens>,
     };
-    let container_type = quote_spanned!{Span::call_site() => &::rustdi::ServiceContainer};
+    //let container_type = quote_spanned!{Span::call_site() => &::rustdi::ServiceContainer};
+    let resolver_trait = quote_spanned!{Span::call_site() => ::rustdi::Resolver};
     let original_func_ident = Ident::new(format!("{}_orig", ident).as_str(), ident.span());;
     let mut original_func = func.clone();
     original_func.ident = original_func_ident.clone();
@@ -67,7 +68,7 @@ pub fn inject(_attr: TokenStream, input: TokenStream) -> TokenStream {
     // Write out new wrapped function
     return quote!{
         
-        fn #ident(resolver: #container_type) -> Result<#return_type, ::rustdi::ResolveError> {
+        fn #ident<R: #resolver_trait>(resolver: &R) -> Result<#return_type, R::Error> {
             #original_func
             let ret = #original_func_ident(#(#args),*);
             return Ok(ret);

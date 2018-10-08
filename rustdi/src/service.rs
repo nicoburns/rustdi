@@ -52,6 +52,7 @@ pub enum ServiceReadGuard<'a, T> {
     Arc(Arc<T>),
     RwLock(RwLockReadGuard<'a, T>),
     Mutex(MutexGuard<'a, T>),
+    Ref(&'a T),
     Owned(T),
 }
 impl<'a, T> Deref for ServiceReadGuard<'a, T> {
@@ -59,10 +60,11 @@ impl<'a, T> Deref for ServiceReadGuard<'a, T> {
 
     fn deref(&self) -> &T {
         match self {
-            ServiceReadGuard::Arc(guard)    => &*guard,
-            ServiceReadGuard::RwLock(guard) => &*guard,
-            ServiceReadGuard::Mutex(guard)  => &*guard,
-            ServiceReadGuard::Owned(value)  => &*value,
+            ServiceReadGuard::Arc(guard)      => &*guard,
+            ServiceReadGuard::RwLock(guard)   => &*guard,
+            ServiceReadGuard::Mutex(guard)    => &*guard,
+            ServiceReadGuard::Ref(reference) => reference,
+            ServiceReadGuard::Owned(value)    => &*value,
         }
     }
 }
@@ -70,6 +72,7 @@ impl<'a, T> Deref for ServiceReadGuard<'a, T> {
 pub enum ServiceWriteGuard<'a, T> {
     RwLock(RwLockWriteGuard<'a, T>),
     Mutex(MutexGuard<'a, T>),
+    Ref(&'a mut T),
     Owned(T),
 }
 impl<'a, T> Deref for ServiceWriteGuard<'a, T> {
@@ -77,18 +80,20 @@ impl<'a, T> Deref for ServiceWriteGuard<'a, T> {
 
     fn deref(&self) -> &T {
         match self {
-            ServiceWriteGuard::RwLock(guard) => &*guard,
-            ServiceWriteGuard::Mutex(guard)  => &*guard,
-            ServiceWriteGuard::Owned(value)  => &*value,
+            ServiceWriteGuard::RwLock(guard)  => &*guard,
+            ServiceWriteGuard::Mutex(guard)   => &*guard,
+            ServiceWriteGuard::Ref(reference) => reference,
+            ServiceWriteGuard::Owned(value)   => &*value,
         }
     }
 }
 impl<'a, T> DerefMut for ServiceWriteGuard<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
         match self {
-            ServiceWriteGuard::RwLock(guard) => &mut *guard,
-            ServiceWriteGuard::Mutex(guard)  => &mut *guard,
-            ServiceWriteGuard::Owned(value)  => &mut *value,
+            ServiceWriteGuard::RwLock(guard)  => &mut *guard,
+            ServiceWriteGuard::Mutex(guard)   => &mut *guard,
+            ServiceWriteGuard::Ref(reference) => reference,
+            ServiceWriteGuard::Owned(value)   => &mut *value,
         }
     }
 }
