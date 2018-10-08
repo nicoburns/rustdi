@@ -1,12 +1,13 @@
 use std::sync::Mutex;
 use std::sync::RwLock;
 use std::sync::Arc;
+use std::marker::PhantomData;
 use typemap::{TypeMap, ShareMap, Key};
 
 use crate::service::{Service, ServiceReadGuard, ServiceWriteGuard};
 
 // TypeMap requires us to use key and value types
-struct KeyType<T>(T);
+struct KeyType<T>(PhantomData<T>);
 impl<T: 'static> Key for KeyType<T> { type Value = Service<T>; }
 
 pub struct ServiceContainer {
