@@ -24,7 +24,6 @@ name = "rustdi"
 version = "0.1.0"
 dependencies = [
  "futures 0.1.24 (registry+https://github.com/rust-lang/crates.io-index)",
- "rustdi_derive 0.1.0",
  "typemap 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -34,7 +33,16 @@ version = "0.1.0"
 dependencies = [
  "proc-macro2 0.4.20 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustdi 0.1.0",
  "syn 0.15.9 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "rustdi_examples"
+version = "0.1.0"
+dependencies = [
+ "rustdi 0.1.0",
+ "rustdi_derive 0.1.0",
 ]
 
 [[package]]

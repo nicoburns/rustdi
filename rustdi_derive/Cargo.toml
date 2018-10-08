@@ -12,3 +12,4 @@ path = "src/lib.rs"
 proc-macro2 = "0.4.20"
 syn = { version = "0.15", features = ["full", "printing", "parsing", "clone-impls", "extra-traits"] }
 quote = "0.6"
+rustdi = { version = "0.1", path = "../rustdi" }

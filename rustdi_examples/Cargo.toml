@@ -1,0 +1,12 @@
+[package]
+name = "rustdi_examples"
+version = "0.1.0"
+authors = ["Nico Burns <nico@nicoburns.com>"]
+
+[[bin]]
+name = "rustdi_examples"
+path = "src/main.rs"
+
+[dependencies]
+rustdi = { version = "0.1", path = "../rustdi" }
+rustdi_derive = { version = "0.1", path = "../rustdi_derive" }
