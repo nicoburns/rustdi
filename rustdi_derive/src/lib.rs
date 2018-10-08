@@ -1,4 +1,4 @@
-#[macro_use] extern crate proc_macro;
+extern crate proc_macro;
 extern crate proc_macro2;
 extern crate syn;
 #[macro_use] extern crate quote;
@@ -18,37 +18,31 @@ use self::ResolveType::*;
 pub fn inject(_attr: TokenStream, input: TokenStream) -> TokenStream {
 
     // Parse input as a function (or panic)
-    println!("input: \"{}\"", input.clone().to_string());
     let func : ItemFn = syn::parse(input.clone()).expect("The inject macro is only supported on functions");
 
     let arg_types_and_mutabilities = func.clone().decl.inputs.into_iter()
         .map(|arg| {
             if let FnArg::Captured(ArgCaptured{ ty: Type::Reference(TypeReference{ mutability, elem, .. }), .. }) = arg {
-                    if let Type::Path(TypePath{ qself: None, path: arg_path }) = *elem {
+                if let Type::Path(TypePath{ qself: None, path: arg_path }) = *elem {
 
-                        // Print debug info
-                        let arg_mutability_str = match &mutability { Some(_) => "&mut ", None => "&"};
-                        let arg_path_str = arg_path.clone().segments.into_iter().map(|seg| seg.ident.to_string()).collect::<Vec<_>>().join("::");
-                        println!("type: {}{}", arg_mutability_str, arg_path_str);
+                    let arg_mutability = match &mutability { Some(_) => MutableBorrow, None => ImmutableBorrow };
+                    (arg_path, arg_mutability)
 
-                        let arg_mutability = match &mutability { Some(_) => MutableBorrow, None => ImmutableBorrow };
-                        (arg_path, arg_mutability)
-
-                    } else { panic!("The inject macro only supports simple type arguments");}
+                } else { panic!("The inject macro only supports simple type arguments");}
             } else { panic!("The inject macro only supports simple type arguments"); }
         });
 
     // Span types
     let ident = func.ident.clone();
-    let container_type = quote_spanned!{Span::call_site() => &::rustdi::ioc::ServiceContainer};
+    let container_type = quote_spanned!{Span::call_site() => &::rustdi::ServiceContainer};
     let original_func_ident = Ident::new(format!("{}_orig", ident).as_str(), ident.span());;
     let mut original_func = func.clone();
     original_func.ident = original_func_ident.clone();
 
     let args = arg_types_and_mutabilities.map(|(arg_path, arg_mutability)| {
         match arg_mutability {
-            ImmutableBorrow => quote_spanned!{Span::call_site() => &*resolver.resolve_read::<#arg_path>().unwrap()},
-            MutableBorrow   => quote_spanned!{Span::call_site() => &mut*resolver.resolve_write::<#arg_path>().unwrap()},
+            ImmutableBorrow => quote_spanned!{Span::call_site() => &*resolver.resolve_immutable_ref::<#arg_path>().unwrap()},
+            MutableBorrow   => quote_spanned!{Span::call_site() => &mut*resolver.resolve_mutable_ref::<#arg_path>().unwrap()},
         }
     });
 
