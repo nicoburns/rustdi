@@ -11,26 +11,39 @@ use rustdi::ServiceContainer;
 #[derive(Clone, Debug)]
 struct AppConfig;
 
+#[derive(Clone, Debug)]
+struct AppState{
+    greeting: String,
+    subject: String,
+}
+
 pub mod s3 {
     #[derive(Clone, Debug)]
-    pub struct S3Client(pub String);
+    pub struct S3Client();
+
+    impl S3Client {
+        pub fn list_objects (&self) {}
+        pub fn get_object (&self) {}
+        pub fn put_object (&self) {}
+    }
 }
 
 
 // Use the #[inject] macro to define IoC container compatible handlers
 #[inject]
-fn write_handler(_config: &AppConfig, client: &mut s3::S3Client) {
-    client.0 = "penguins".into();
+fn write_handler(_config: &AppConfig, state: &mut AppState) {
+    state.subject = "penguins".to_string();
 }
 
 #[inject]
-fn read_handler(_config: &AppConfig, client: s3::S3Client) {
-    println!("Hello {}", client.0);
+fn read_handler(_config: &AppConfig, state: &AppState) {
+    println!("{} {}!", state.greeting, state.subject);
 }
 
 #[inject]
-fn invalid_handler(_config: &mut AppConfig) {
-    println!("Hello world");
+fn s3_handler(_config: &AppConfig, client: s3::S3Client) {
+    client.list_objects();
+    client.get_object();
 }
 
 // #[inject]
@@ -45,23 +58,26 @@ fn main() {
     let container = {
         let mut c = ServiceContainer::new();
         c.bind_singleton_arc(Arc::new(AppConfig));
-        c.bind_singleton_rwlock(Arc::new(RwLock::new(s3::S3Client("world".into()))));
-        c.bind_factory(|| s3::S3Client("world".into()));
+        c.bind_singleton_rwlock(Arc::new(RwLock::new(AppState{
+            greeting: "hello".into(),
+            subject:  "world".into(),
+        })));
+        c.bind_factory(|| s3::S3Client());
         Arc::new(c)
     };
 
     // Test resolving references out of the container manually
     println!("Testing container manually...");
     {
-        let mut client = container.resolve_mutable_ref::<s3::S3Client>().unwrap();
-        client.0 = "frogs".into();
+        let mut state = container.resolve_mutable_ref::<AppState>().unwrap();
+        state.subject = "frogs".into();
     }
     {
-        let client = container.resolve_immutable_ref::<s3::S3Client>().unwrap();
-        println!("Hello {}", client.0);
+        let state = container.resolve_immutable_ref::<AppState>().unwrap();
+        println!("Hello {}", state.subject);
     }
     let client = container.resolve_owned_value::<s3::S3Client>().unwrap();
-    println!("Hello {}", client.0);
+    client.list_objects();
 
     // Test resolving references out of the container using the #[inject] macro
     println!("Testing injectable handlers...");
@@ -80,8 +96,7 @@ fn main() {
         move || { read_handler(&container).unwrap(); }
     }).join().unwrap();
 
-    // Testing invalid handler. We cannot get a mutable reference to
-    // an Arc singleton so we just panic in this case.
-    println!("Testing invalid handler (expect panic)...");
-    invalid_handler(&container).unwrap();
+    // Testing factory service handler
+    println!("Testing factory service handler (expect panic)...");
+    s3_handler(&container).unwrap();
 }
