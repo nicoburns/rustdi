@@ -24,7 +24,7 @@ fn write_handler(_config: &AppConfig, client: &mut s3::S3Client) {
 }
 
 #[inject]
-fn read_handler(_config: &AppConfig, client: &s3::S3Client) {
+fn read_handler(_config: &AppConfig, client: s3::S3Client) {
     println!("Hello {}", client.0);
 }
 

@@ -12,8 +12,8 @@ use quote::ToTokens;
 enum ResolveType {
     ImmutableBorrow,
     MutableBorrow,
+    OwnedValue,
 }
-use self::ResolveType::*;
 
 #[proc_macro_attribute]
 pub fn inject(_attr: TokenStream, input: TokenStream) -> TokenStream {
@@ -24,14 +24,23 @@ pub fn inject(_attr: TokenStream, input: TokenStream) -> TokenStream {
     // Extract argument info from function
     let arg_types_and_mutabilities = func.clone().decl.inputs.into_iter()
         .map(|arg| {
-            if let FnArg::Captured(ArgCaptured{ ty: Type::Reference(TypeReference{ mutability, elem, .. }), .. }) = arg {
-                if let Type::Path(TypePath{ qself: None, path: arg_path }) = *elem {
+            match arg {
+                FnArg::Captured(ArgCaptured{ ty: Type::Reference(TypeReference{ mutability, elem, .. }), .. }) => {
+                    if let Type::Path(TypePath{ qself: None, path: arg_path }) = *elem {
 
-                    let arg_mutability = match &mutability { Some(_) => MutableBorrow, None => ImmutableBorrow };
-                    (arg_path, arg_mutability)
+                        let arg_mutability = match &mutability {
+                            Some(_) => ResolveType::MutableBorrow,
+                            None    => ResolveType::ImmutableBorrow
+                        };
+                        (arg_path, arg_mutability)
 
-                } else { panic!("The inject macro only supports simple type arguments");}
-            } else { panic!("The inject macro only supports simple type arguments"); }
+                    } else { panic!("The inject macro only supports simple type arguments"); }
+                },
+                FnArg::Captured(ArgCaptured{ ty: Type::Path(TypePath{ qself: None, path: arg_path }), .. }) => {
+                    (arg_path, ResolveType::OwnedValue)
+                },
+                _ => panic!("The inject macro only supports simple type arguments"),
+            }
         });
 
     
@@ -49,8 +58,9 @@ pub fn inject(_attr: TokenStream, input: TokenStream) -> TokenStream {
     // Generate code to resolve injected arguments from container with requested mutability
     let args = arg_types_and_mutabilities.map(|(arg_path, arg_mutability)| {
         match arg_mutability {
-            ImmutableBorrow => quote_spanned!{Span::call_site() => &*resolver.resolve_immutable_ref::<#arg_path>()?},
-            MutableBorrow   => quote_spanned!{Span::call_site() => &mut*resolver.resolve_mutable_ref::<#arg_path>()?},
+            ResolveType::ImmutableBorrow => quote_spanned!{Span::call_site() => &*resolver.resolve_immutable_ref::<#arg_path>()?},
+            ResolveType::MutableBorrow   => quote_spanned!{Span::call_site() => &mut*resolver.resolve_mutable_ref::<#arg_path>()?},
+            ResolveType::OwnedValue      => quote_spanned!{Span::call_site() => resolver.resolve_owned_value::<#arg_path>()?},
         }
     });
 
