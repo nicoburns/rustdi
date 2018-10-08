@@ -1,3 +1,7 @@
 extern crate typemap;
 
-pub mod ioc;
+mod service;
+mod container;
+
+pub use service::{Service, ServiceReadGuard, ServiceWriteGuard};
+pub use container::ServiceContainer;

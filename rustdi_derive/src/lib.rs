@@ -1,4 +1,4 @@
-#[macro_use] extern crate proc_macro;
+extern crate proc_macro;
 extern crate proc_macro2;
 extern crate syn;
 #[macro_use] extern crate quote;
@@ -40,7 +40,7 @@ pub fn inject(_attr: TokenStream, input: TokenStream) -> TokenStream {
 
     // Span types
     let ident = func.ident.clone();
-    let container_type = quote_spanned!{Span::call_site() => &::rustdi::ioc::ServiceContainer};
+    let container_type = quote_spanned!{Span::call_site() => &::rustdi::ServiceContainer};
     let original_func_ident = Ident::new(format!("{}_orig", ident).as_str(), ident.span());;
     let mut original_func = func.clone();
     original_func.ident = original_func_ident.clone();

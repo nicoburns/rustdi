@@ -4,7 +4,7 @@ extern crate rustdi;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use rustdi::ioc::ServiceContainer;
+use rustdi::ServiceContainer;
 
 
 // Dummy types for testing DI with
