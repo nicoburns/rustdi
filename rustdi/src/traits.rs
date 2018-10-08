@@ -12,5 +12,5 @@ pub trait Resolver {
 pub trait Inject {
     type Return;
 
-    fn inject<R: Resolver>(resolver: R) -> Result<Self::Return, R::Error>;
+    fn inject<R: Resolver>(&self, resolver: R) -> Result<Self::Return, R::Error>;
 }
