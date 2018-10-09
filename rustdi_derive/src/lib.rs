@@ -46,6 +46,7 @@ pub fn inject(_attr: TokenStream, input: TokenStream) -> TokenStream {
     
     // Generate parts of the output function
     let ident = func.ident.clone();
+    let visibility = func.vis.clone();
     let return_type = match func.decl.output.clone() {
         ReturnType::Default => Box::new(quote!{()}) as Box<ToTokens>,
         ReturnType::Type(_, ty) => ty as Box<ToTokens>,
@@ -68,7 +69,7 @@ pub fn inject(_attr: TokenStream, input: TokenStream) -> TokenStream {
     // Write out new wrapped function
     return quote!{
         
-        fn #ident<R: #resolver_trait>(resolver: &R) -> Result<#return_type, R::Error> {
+        #visibility fn #ident<R: #resolver_trait>(resolver: &R) -> Result<#return_type, R::Error> {
             #original_func
             let ret = #original_func_ident(#(#args),*);
             return Ok(ret);
