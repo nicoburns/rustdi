@@ -4,9 +4,16 @@ version = "0.1.0"
 authors = ["Nico Burns <nico@nicoburns.com>"]
 
 [[bin]]
-name = "rustdi_examples"
-path = "src/main.rs"
+name = "rustdi_example_basic"
+path = "src/basic.rs"
+
+[[bin]]
+name = "rustdi_example_router"
+path = "src/router.rs"
 
 [dependencies]
 rustdi = { version = "0.1", path = "../rustdi" }
 rustdi_derive = { version = "0.1", path = "../rustdi_derive" }
+hyper = "0.12"
+futures = "0.1"
+pretty_env_logger = "0.2.4"

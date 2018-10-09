@@ -6,50 +6,12 @@ use std::sync::RwLock;
 
 use rustdi::{Resolver, ServiceContainer};
 
-
-// Dummy types for testing DI with
-#[derive(Clone, Debug)]
-struct AppConfig;
-
-#[derive(Clone, Debug)]
-struct AppState{
-    greeting: String,
-    subject: String,
+pub mod common{
+    pub mod models;
+    pub mod handlers;
 }
-
-pub mod s3 {
-    #[derive(Clone, Debug)]
-    pub struct S3Client();
-
-    impl S3Client {
-        pub fn list_objects (&self) {}
-        pub fn get_object (&self) {}
-        pub fn put_object (&self) {}
-    }
-}
-
-
-// Use the #[inject] macro to define IoC container compatible handlers
-#[inject]
-fn write_handler(_config: &AppConfig, state: &mut AppState) {
-    state.subject = "penguins".to_string();
-}
-
-#[inject]
-fn read_handler(_config: &AppConfig, state: &AppState) {
-    println!("{} {}!", state.greeting, state.subject);
-}
-
-#[inject]
-fn s3_handler(_config: &AppConfig, client: s3::S3Client) {
-    client.list_objects();
-    client.get_object();
-}
-
-// #[inject]
-// fn show(_req: Request, _db: Connection, _s3: self::s3::S3Client) -> impl Future<Item=Response, Error=()> {
-//     return futures::future::ok(Response {});
-// }
+use common::models::{AppConfig, AppState, s3};
+use common::handlers::{read_handler, write_handler, s3_handler};
 
 
 fn main() {
