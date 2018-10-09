@@ -10,4 +10,5 @@ path = "src/lib.rs"
 [dependencies]
 typemap = "0.3.3"
 futures = "0.1"
+unsafe-any = "0.4.2"
 

@@ -49,24 +49,49 @@ impl ServiceContainer {
 impl Resolver for ServiceContainer {
     type Error = ResolveError;
 
-    fn resolve_owned_value<S: Send + Sync + 'static> (&self) -> Result<S, ResolveError> {
-        match self.services.get::<KeyType<S>>() {
+    fn resolve_owned_value<S: 'static> (&self) -> Result<S, ResolveError> {
+        match self.services.get_unchecked::<KeyType<S>>() {
             Some(service) => service.owned_value(),
             None          => Err(ResolveError::NonExist),
         }
     }
 
-    fn resolve_immutable_ref<S: Send + Sync + 'static> (&self) -> Result<ServiceReadGuard<S>, ResolveError> {
-        match self.services.get::<KeyType<S>>() {
+    fn resolve_immutable_ref<S: 'static> (&self) -> Result<ServiceReadGuard<S>, ResolveError> {
+        match self.services.get_unchecked::<KeyType<S>>() {
             Some(service) => service.immutable_ref(),
             _             => Err(ResolveError::NonExist),
         }
     }
 
-    fn resolve_mutable_ref<S: Send + Sync + 'static> (&self) -> Result<ServiceWriteGuard<S>, ResolveError> {
-        match self.services.get::<KeyType<S>>() {
+    fn resolve_mutable_ref<S: 'static> (&self) -> Result<ServiceWriteGuard<S>, ResolveError> {
+        match self.services.get_unchecked::<KeyType<S>>() {
             Some(service) => service.mutable_ref(),
             _             => Err(ResolveError::NonExist),
         }
+    }
+}
+
+
+
+// Find a value in the map and get a reference to it.
+//
+// It's technically safe to remove the Implements<A> bound from K::Value as the bound
+// still exists on the insert method so no such values can exist in the map and this
+// function will simply return None
+//
+// However, this allows us to move the check from compile time to runtime, which is useful
+// as it allows us to remove it from the Resolver trait which frees up other resolvers to
+// return values which aren't Send+Sync if they want to.
+use std::any::{Any, TypeId};
+use unsafe_any::UnsafeAnyExt;
+
+trait TypeMapExt {
+    fn get_unchecked<K: Key>(&self) -> Option<&K::Value> where K::Value: Any;
+}
+impl TypeMapExt for ShareMap {
+    fn get_unchecked<K: Key>(&self) -> Option<&K::Value> where K::Value: Any {
+        unsafe {self.data()}.get(&TypeId::of::<K>()).map(|v| unsafe {
+            v.downcast_ref_unchecked::<K::Value>()
+        })
     }
 }
