@@ -5,9 +5,10 @@ extern crate futures;
 extern crate pretty_env_logger;
 
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock, atomic::{AtomicUsize, Ordering}};
+use std::sync::{Arc, RwLock};
+use std::any::TypeId;
+use std::mem;
 use hyper::{Body, Chunk, Client, Method, Request, Response, Server, StatusCode, header, Error};
-use hyper::client::HttpConnector;
 use hyper::service::service_fn;
 use futures::{future, Future, Stream};
 use rustdi::{Resolver, ServiceContainer, ResolveError, ServiceReadGuard, ServiceWriteGuard};
@@ -19,23 +20,35 @@ pub mod common{
 use common::models::{AppConfig, AppState, s3};
 use common::handlers::{read_handler, write_handler};
 
-struct RequestResolver<ReqT, ResolverT> {
+#[inject]
+pub fn route_handler(req: &Request<Body>, state: &mut AppState) {
+    println!("{}", req.uri().path());
+    state.subject = "penguins".to_string();
+}
+
+struct RequestResolver<ReqT: 'static, ResolverT> {
     pub request: ReqT,
     pub resolver: Arc<ResolverT>,
 }
 
-impl<ReqT, ResolverT: Resolver> Resolver for RequestResolver<ReqT, ResolverT> {
+impl<ReqT: 'static, ResolverT: Resolver> Resolver for RequestResolver<ReqT, ResolverT> {
     type Error = ResolverT::Error;
 
-    fn resolve_immutable_ref<S: Send + Sync + 'static>(&self) -> Result<ServiceReadGuard<S>, Self::Error> {
+    fn resolve_immutable_ref<S: 'static>(&self) -> Result<ServiceReadGuard<S>, Self::Error> {
+        
+        // Use of mem::transmute is safe as types must be identical if TypeId's are identical
+        if TypeId::of::<S>() == TypeId::of::<ReqT>() {
+            return Ok(ServiceReadGuard::Ref(unsafe { std::mem::transmute::<&ReqT, &S>(&self.request) }));
+        }
+
         self.resolver.resolve_immutable_ref::<S>()
     }
 
-    fn resolve_mutable_ref<S: Send + Sync + 'static>(&self) -> Result<ServiceWriteGuard<S>, Self::Error> {
+    fn resolve_mutable_ref<S: 'static>(&self) -> Result<ServiceWriteGuard<S>, Self::Error> {
         self.resolver.resolve_mutable_ref::<S>()
     }
 
-    fn resolve_owned_value<S: Send + Sync + 'static>(&self) -> Result<S, Self::Error> {
+    fn resolve_owned_value<S: 'static>(&self) -> Result<S, Self::Error> {
         self.resolver.resolve_owned_value::<S>()
     }
 }
@@ -85,6 +98,7 @@ fn create_container() -> ServiceContainer {
 fn create_router(container: Arc<ServiceContainer>) -> Router<ServiceContainer> {
     let mut r = Router::new(container);
     r.add(Method::GET, "/state/write", write_handler);
+    r.add(Method::GET, "/state/echo", route_handler);
     r
 }
 
