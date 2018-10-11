@@ -1,3 +1,4 @@
+extern crate unsafe_any;
 extern crate typemap;
 
 mod traits;
