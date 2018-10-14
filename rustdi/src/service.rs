@@ -7,43 +7,43 @@ use std::sync::Arc;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
+use super::traits::Resolver;
 use super::resolve_error::ResolveError;
 
 // Service enum which encapsulates the various different ways which services
 // can be bound to the container, and allows us to do runtime checking.
-#[derive(Debug)]
-pub enum Service<T> {
+pub enum Service<R: Resolver, T> {
     SingletonArc(Arc<T>),
     SingletonRwLock(Arc<RwLock<T>>),
     SingletonMutex(Arc<Mutex<T>>),
-    Factory(Arc<fn() -> T>),
+    Factory(Arc<fn(&R) -> T>),
 }
 
-impl<S> Service<S> {
-    pub fn immutable_ref (&self) -> Result<ServiceReadGuard<S>, ResolveError> {
+impl<R: Resolver, T> Service<R, T> {
+    pub fn immutable_ref (&self, resolver: &R) -> Result<ServiceReadGuard<T>, ResolveError> {
         return match self {
             Service::SingletonArc(service)    => Ok(ServiceReadGuard::Arc(service.clone())),
             Service::SingletonRwLock(service) => service.read().map(ServiceReadGuard::RwLock).map_err(|_| ResolveError::Poisoned),
             Service::SingletonMutex(service)  => service.lock().map(ServiceReadGuard::Mutex).map_err(|_| ResolveError::Poisoned),
-            Service::Factory(factory)         => Ok(ServiceReadGuard::Owned(factory())),
+            Service::Factory(factory)         => Ok(ServiceReadGuard::Owned(factory(resolver))),
         }
     }
 
-    pub fn mutable_ref (&self) -> Result<ServiceWriteGuard<S>, ResolveError> {
+    pub fn mutable_ref (&self, resolver: &R) -> Result<ServiceWriteGuard<T>, ResolveError> {
         return match self {
             Service::SingletonArc(_)          => Err(ResolveError::MutImmutable),
             Service::SingletonRwLock(service) => service.write().map(ServiceWriteGuard::RwLock).map_err(|_| ResolveError::Poisoned),
             Service::SingletonMutex(service)  => service.lock().map(ServiceWriteGuard::Mutex).map_err(|_| ResolveError::Poisoned),
-            Service::Factory(factory)         => Ok(ServiceWriteGuard::Owned(factory())),
+            Service::Factory(factory)         => Ok(ServiceWriteGuard::Owned(factory(resolver))),
         }
     }
 
-    pub fn owned_value (&self) -> Result<S, ResolveError> {
+    pub fn owned_value (&self, resolver: &R) -> Result<T, ResolveError> {
         return match self {
             Service::SingletonArc(_)    => Err(ResolveError::OwnedImmutable),
             Service::SingletonRwLock(_) => Err(ResolveError::OwnedMutable),
             Service::SingletonMutex(_)  => Err(ResolveError::OwnedMutable),
-            Service::Factory(factory)   => Ok(factory()),
+            Service::Factory(factory)   => Ok(factory(resolver)),
         }
     }
 }

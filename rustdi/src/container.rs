@@ -10,7 +10,7 @@ use super::resolve_error::ResolveError;
 
 // TypeMap requires us to use key and value types
 struct KeyType<T>(PhantomData<T>);
-impl<T: 'static> Key for KeyType<T> { type Value = Service<T>; }
+impl<T: 'static> Key for KeyType<T> { type Value = Service<ServiceContainer, T>; }
 
 // The ServiceContainer itself: just a wrapper around a TypeMap<Send + Sync>
 pub struct ServiceContainer {
@@ -39,7 +39,7 @@ impl ServiceContainer {
         self.services.insert::<KeyType<S>>(value);
     }
 
-    pub fn bind_factory<S: Send + Sync + 'static> (&mut self, factory: fn() -> S) {
+    pub fn bind_factory<S: Send + Sync + 'static> (&mut self, factory: fn(&Self) -> S) {
         let value = Service::Factory(Arc::new(factory));
         self.services.insert::<KeyType<S>>(value);
     }
@@ -51,21 +51,21 @@ impl Resolver for ServiceContainer {
 
     fn resolve_owned_value<S: 'static> (&self) -> Result<S, ResolveError> {
         match self.services.get_unchecked::<KeyType<S>>() {
-            Some(service) => service.owned_value(),
+            Some(service) => service.owned_value(&self),
             None          => Err(ResolveError::NonExist),
         }
     }
 
     fn resolve_immutable_ref<S: 'static> (&self) -> Result<ServiceReadGuard<S>, ResolveError> {
         match self.services.get_unchecked::<KeyType<S>>() {
-            Some(service) => service.immutable_ref(),
+            Some(service) => service.immutable_ref(&self),
             _             => Err(ResolveError::NonExist),
         }
     }
 
     fn resolve_mutable_ref<S: 'static> (&self) -> Result<ServiceWriteGuard<S>, ResolveError> {
         match self.services.get_unchecked::<KeyType<S>>() {
-            Some(service) => service.mutable_ref(),
+            Some(service) => service.mutable_ref(&self),
             _             => Err(ResolveError::NonExist),
         }
     }
@@ -82,6 +82,8 @@ impl Resolver for ServiceContainer {
 // However, this allows us to move the check from compile time to runtime, which is useful
 // as it allows us to remove it from the Resolver trait which frees up other resolvers to
 // return values which aren't Send+Sync if they want to.
+//
+// Use of unsafe to access data is fine as we only need to do this to work aoru
 use std::any::{Any, TypeId};
 use unsafe_any::UnsafeAnyExt;
 

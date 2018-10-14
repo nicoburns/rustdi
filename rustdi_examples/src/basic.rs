@@ -24,7 +24,7 @@ fn main() {
             greeting: "hello".into(),
             subject:  "world".into(),
         })));
-        c.bind_factory(|| s3::S3Client());
+        c.bind_factory(|_| s3::S3Client());
         Arc::new(c)
     };
 

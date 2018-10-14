@@ -7,7 +7,6 @@ extern crate pretty_env_logger;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::any::TypeId;
-use std::mem;
 use hyper::{Body, Chunk, Client, Method, Request, Response, Server, StatusCode, header, Error};
 use hyper::service::service_fn;
 use futures::{future, Future, Stream};
@@ -91,7 +90,7 @@ fn create_container() -> ServiceContainer {
         greeting: "hello".into(),
         subject:  "world".into(),
     })));
-    c.bind_factory(|| s3::S3Client());
+    c.bind_factory(|_| s3::S3Client());
     c
 }
 
