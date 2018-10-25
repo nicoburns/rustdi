@@ -48,7 +48,7 @@ impl<R: Resolver, T> Service<R, T> {
     }
 }
 
-pub enum ServiceReadGuard<'a, T> {
+pub enum ServiceReadGuard<'a, T: 'a> {
     Arc(Arc<T>),
     RwLock(RwLockReadGuard<'a, T>),
     Mutex(MutexGuard<'a, T>),
@@ -69,7 +69,7 @@ impl<'a, T> Deref for ServiceReadGuard<'a, T> {
     }
 }
 
-pub enum ServiceWriteGuard<'a, T> {
+pub enum ServiceWriteGuard<'a, T: 'a> {
     RwLock(RwLockWriteGuard<'a, T>),
     Mutex(MutexGuard<'a, T>),
     Ref(&'a mut T),
@@ -87,7 +87,7 @@ impl<'a, T> Deref for ServiceWriteGuard<'a, T> {
         }
     }
 }
-impl<'a, T> DerefMut for ServiceWriteGuard<'a, T> {
+impl<'a, T: 'a> DerefMut for ServiceWriteGuard<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
         match self {
             ServiceWriteGuard::RwLock(guard)  => &mut *guard,
